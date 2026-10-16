@@ -1,0 +1,17 @@
+import { createRequire } from 'module';
+import { execSync } from 'child_process';
+import fs from 'fs';
+const require = createRequire(import.meta.url);
+const { chromium } = require(execSync('npm root -g').toString().trim() + '/playwright-core');
+const browser = await chromium.connectOverCDP('http://127.0.0.1:9333');
+const page = browser.contexts()[0].pages().find(p => p.url().includes('8123'));
+await page.evaluate(() => __game.startLevel(3, { score: 0, coins: 0, lives: 5, power: 2 }));
+await page.waitForTimeout(2600);
+await page.evaluate(() => { __game.teleport(127, 11); __game.setPower(2); });
+await page.waitForTimeout(2200);
+const d = await page.evaluate(() => document.getElementById('screen').toDataURL('image/png').split(',')[1]);
+fs.writeFileSync('final-bowser.png', Buffer.from(d, 'base64'));
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(600);
+console.log('reset to:', await page.evaluate(() => __game.state));
+process.exit(0);

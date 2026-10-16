@@ -1,0 +1,31 @@
+import { createRequire } from 'module';
+import { execSync } from 'child_process';
+import fs from 'fs';
+const require = createRequire(import.meta.url);
+const { chromium } = require(execSync('npm root -g').toString().trim() + '/playwright-core');
+const browser = await chromium.connectOverCDP('http://127.0.0.1:9333');
+const page = browser.contexts()[0].pages().find(p => p.url().includes('8123'));
+const errs = []; page.on('pageerror', e => errs.push('PAGEERROR ' + e.message));
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(400);
+await page.keyboard.press('Enter');
+await page.waitForTimeout(400);
+await page.evaluate(() => __game.startLevel(3, { score: 0, coins: 0, lives: 5, power: 2 }));
+await page.waitForTimeout(2400);
+const shot = async n => { const d = await page.evaluate(() => document.getElementById('screen').toDataURL('image/png').split(',')[1]); fs.writeFileSync(n + '.png', Buffer.from(d, 'base64')); };
+await page.evaluate(() => { __game.teleport(133, 11); __game.setPower(2); });
+await page.waitForTimeout(1000);
+await shot('test/axe-bridge');
+/* walk right into the axe */
+await page.keyboard.down('ArrowRight');
+await page.waitForTimeout(1200);
+await page.keyboard.up('ArrowRight');
+console.log('axe taken:', await page.evaluate(() => ({ taken: __game.level.axe.taken, collapsing: __game.level.collapsing, hp: (__game.entities.find(e=>e.kind==='bowser')||{}).hp })));
+await shot('test/axe-collapse');
+await page.waitForTimeout(1500);
+await shot('test/axe-after');
+for (let i = 0; i < 14; i++) { const st = await page.evaluate(() => __game.state); if (st === 'ending') break; await page.waitForTimeout(700); }
+console.log('state:', await page.evaluate(() => __game.state));
+await shot('test/axe-ending');
+console.log(errs.length ? errs.slice(0,6).join('\n') : 'no errors');
+process.exit(0);

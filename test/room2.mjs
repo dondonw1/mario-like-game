@@ -1,0 +1,25 @@
+import { createRequire } from 'module';
+import { execSync } from 'child_process';
+const require = createRequire(import.meta.url);
+const { chromium } = require(execSync('npm root -g').toString().trim() + '/playwright-core');
+const browser = await chromium.connectOverCDP('http://127.0.0.1:9333');
+const page = browser.contexts()[0].pages().find(p => p.url().includes('8123'));
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(400);
+await page.keyboard.press('Enter');
+await page.waitForTimeout(400);
+await page.evaluate(() => __game.startLevel(1, { score: 0, coins: 0, lives: 3, power: 0 }));
+await page.waitForTimeout(2400);
+const probe = () => page.evaluate(() => ({ cols: __game.level.cols, x: Math.round(__game.player.x), y: Math.round(__game.player.y), st: __game.player.state, pd: __game.player.pipeDir, lives: __game.player.lives }));
+await page.evaluate(() => __game.teleport(124, 12));
+await page.waitForTimeout(1200);
+await page.evaluate(() => __game.teleport(121, 10));
+await page.waitForTimeout(300);
+await page.keyboard.down('ArrowDown');
+await page.waitForTimeout(4000);
+await page.keyboard.up('ArrowDown');
+console.log('room:', JSON.stringify(await probe()));
+await page.keyboard.down('ArrowRight');
+for (let i = 0; i < 16; i++) { await page.waitForTimeout(500); console.log('  t' + i, JSON.stringify(await probe())); }
+await page.keyboard.up('ArrowRight');
+process.exit(0);

@@ -1,0 +1,10 @@
+import { createRequire } from 'module';
+import { execSync } from 'child_process';
+const require = createRequire(import.meta.url);
+const { chromium } = require(execSync('npm root -g').toString().trim() + '/playwright-core');
+const browser = await chromium.connectOverCDP('http://127.0.0.1:9333');
+const page = browser.contexts()[0].pages().find(p => p.url().includes('8123'));
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(800);
+console.log('state:', await page.evaluate(() => __game.state));
+process.exit(0);

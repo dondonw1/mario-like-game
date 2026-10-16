@@ -1,0 +1,37 @@
+import { createRequire } from 'module';
+import { execSync } from 'child_process';
+import fs from 'fs';
+const require = createRequire(import.meta.url);
+const { chromium } = require(execSync('npm root -g').toString().trim() + '/playwright-core');
+const browser = await chromium.connectOverCDP('http://127.0.0.1:9333');
+const page = browser.contexts()[0].pages().find(p => p.url().includes('8123'));
+const errs = [];
+page.on('pageerror', e => errs.push('PAGEERROR ' + e.message));
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(400);
+await page.keyboard.press('Enter');
+await page.waitForTimeout(400);
+await page.evaluate(() => __game.startLevel(1, { score: 0, coins: 0, lives: 3, power: 0 }));
+await page.waitForTimeout(2300);
+const shot = async n => { const d = await page.evaluate(() => document.getElementById('screen').toDataURL('image/png').split(',')[1]); fs.writeFileSync(n + '.png', Buffer.from(d, 'base64')); };
+/* piranha plants */
+await page.evaluate(() => __game.teleport(116, 12));
+await page.waitForTimeout(900);
+await shot('test/l12-plants');
+console.log('plants:', await page.evaluate(() => __game.entities.filter(e => e.kind === 'plant').map(e => ({ out: Math.round(e.out), y: Math.round(e.y) }))));
+/* bonus room pipe */
+await page.evaluate(() => { __game.teleport(121, 10); });
+await page.waitForTimeout(300);
+await page.keyboard.down('ArrowDown');
+await page.waitForTimeout(1400);
+await page.keyboard.up('ArrowDown');
+console.log('after down-pipe:', await page.evaluate(() => ({ name: __game.level.name, x: Math.round(__game.player.x), y: Math.round(__game.player.y), st: __game.player.state, coins: __game.level.items.length })));
+await shot('test/l12-room');
+await page.keyboard.down('ArrowRight');
+await page.waitForTimeout(900);
+await shot('test/l12-room2');
+await page.waitForTimeout(2500);
+await page.keyboard.up('ArrowRight');
+console.log('after room exit pipe:', await page.evaluate(() => ({ name: __game.level.name, x: Math.round(__game.player.x), y: Math.round(__game.player.y), st: __game.player.state })));
+console.log(errs.length ? errs.slice(0,5).join('\n') : 'no errors');
+process.exit(0);

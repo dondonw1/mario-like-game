@@ -1,0 +1,32 @@
+import { createRequire } from 'module';
+import { execSync } from 'child_process';
+import fs from 'fs';
+const require = createRequire(import.meta.url);
+const { chromium } = require(execSync('npm root -g').toString().trim() + '/playwright-core');
+const browser = await chromium.connectOverCDP('http://127.0.0.1:9333');
+const page = browser.contexts()[0].pages().find(p => p.url().includes('8123'));
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(600);
+const shot = async (n) => {
+  const d = await page.evaluate(() => document.getElementById('screen').toDataURL('image/png').split(',')[1]);
+  fs.writeFileSync(n + '.png', Buffer.from(d, 'base64'));
+};
+await shot('z-title');
+await page.keyboard.press('Enter');
+await page.waitForTimeout(3000);
+await page.evaluate(() => { __game.teleport(30, 11); __game.setPower(2); __game.keys.run = 1; });
+await page.waitForTimeout(250);
+await page.evaluate(() => { __game.keys.run = 0; });
+await page.waitForTimeout(150);
+await shot('z-fire');
+await page.evaluate(() => { for (const e of __game.entities) if (e.enemy) e.alive = false; __game.teleport(40, 11); __game.setPower(0); __game.keys.run = 0; });
+await page.waitForTimeout(300);
+await page.keyboard.down('ArrowRight'); await page.keyboard.down('ShiftLeft');
+await page.waitForTimeout(1200);
+await page.evaluate(() => __game.pressJump(500));
+await page.waitForTimeout(400);
+await shot('z-jump');
+await page.keyboard.up('ArrowRight'); await page.keyboard.up('ShiftLeft');
+/* hand the window back to the user, at the title screen */
+await page.evaluate(() => location.reload());
+process.exit(0);

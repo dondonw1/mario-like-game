@@ -1,0 +1,31 @@
+import { createRequire } from 'module';
+import { execSync } from 'child_process';
+import fs from 'fs';
+const require = createRequire(import.meta.url);
+const { chromium } = require(execSync('npm root -g').toString().trim() + '/playwright-core');
+const browser = await chromium.connectOverCDP('http://127.0.0.1:9333');
+const page = browser.contexts()[0].pages().find(p => p.url().includes('8123'));
+const errs = []; page.on('pageerror', e => errs.push('PAGEERROR ' + e.message));
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(600);
+await page.keyboard.press('Enter');
+await page.waitForTimeout(400);
+await page.evaluate(() => __game.startLevel(3, { score: 0, coins: 0, lives: 5, power: 2 }));
+await page.waitForTimeout(2400);
+const shot = async n => { const d = await page.evaluate(() => document.getElementById('screen').toDataURL('image/png').split(',')[1]); fs.writeFileSync(n + '.png', Buffer.from(d, 'base64')); };
+const B = () => page.evaluate(() => { const b = __game.entities.find(e => e.kind === 'bowser'); return b && { x: Math.round(b.x), y: Math.round(b.y), hp: b.hp, vx: +b.vx.toFixed(2), falling: b.falling }; });
+console.log('bowser t0:', await B());
+await page.waitForTimeout(1500);
+console.log('bowser t1:', await B(), 'flames:', await page.evaluate(() => __game.entities.filter(e => e.kind === 'flame').length));
+await shot('test/bowser-fight');
+for (let i = 0; i < 5; i++) {
+  const b = await B();
+  if (!b || b.hp <= 0) break;
+  const c = Math.round((b.x + 16) / 16);
+  await page.evaluate(([c]) => __game.teleport(c, 7), [c]);
+  await page.waitForTimeout(700);
+  console.log(`stomp ${i}: hp=`, (await B())?.hp, 'player:', await page.evaluate(() => ({ y: Math.round(__game.player.y), st: __game.player.state, power: __game.player.power })));
+}
+await shot('test/bowser-hits');
+console.log(errs.length ? errs.slice(0,6).join('\n') : 'no errors');
+process.exit(0);
